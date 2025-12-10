@@ -66,6 +66,7 @@ pip install -r requirements.txt
 
 ## 🛠️ 4. Quy trình tiền xử lý (Preprocessing Pipeline)
 
+### Bấm run all trong `src/preprocess/download_and_preprocess.ipynb` để tải và tiền xử lý ảnh.
 
 ### 🔹 1. Chuyển ảnh sang grayscale
 

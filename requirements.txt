@@ -5,3 +5,5 @@ matplotlib
 numpy
 scikit-learn
 tqdm
+kagglehub
+ipykernel
