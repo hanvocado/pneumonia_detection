@@ -68,25 +68,7 @@ pip install -r requirements.txt
 
 ### Bấm run all trong `src/preprocess/download_and_preprocess.ipynb` để tải và tiền xử lý ảnh.
 
-### 🔹 1. Chuyển ảnh sang grayscale
-
-### 🔹 2. Resize (thường 224×224)
-
-### 🔹 3. Lọc nhiễu
-
-* Gaussian blur
-* Median filter
-
-### 🔹 4. Tăng cường tương phản bằng CLAHE
-
-### 🔹 5. Normalization
-
-### 🔹 6. Data Augmentation (train only)
-
-* Horizontal flip
-* Rotation ±10°
-* Brightness/contrast jitter
-* Random cropping
+### Bấm run all trong `src/preprocess/split_dataset.ipynb` để tăng cường dữ liệu và split dataset.
 
 ---
 
