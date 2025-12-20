@@ -3,6 +3,7 @@ import torch
 from PIL import Image
 import styles
 import utils
+import time
 
 # ==========================================
 # CẤU HÌNH TRANG WEB
@@ -29,29 +30,32 @@ with st.sidebar:
 
     st.markdown("## 🏥 Pneumonia Check")
     st.image("https://cdn-icons-png.flaticon.com/512/3063/3063176.png", width=80)
+    
+    # Dropdown chọn mode phân tích
+    st.markdown("### 🎯 Chế Độ Phân Tích")
+    analysis_mode = st.selectbox(
+        "Chọn phương pháp phân tích:",
+        [
+            "CNN",
+            "ResNet18", 
+            "MobileNetV3",
+            "Ensemble (Tỉ lệ: 30-40-30)"
+        ],
+        index=3,  # Mặc định chọn Ensemble
+        help="Lựa chọn phương pháp phân tích ảnh X-quang"
+    )
+    
+    st.markdown("---")
         
     # Load models từ utils.py
     st.markdown("### 📊 Trạng Thái Hệ Thống")
-    cnn_model, resnet_model, st_cnn, st_resnet = utils.load_models()
+    # Load 3 models
+    cnn_model, resnet_model, mobilenet_model, st_cnn, st_resnet, st_mobi = utils.load_models()
     
-    col1, col2 = st.columns(2)
-    with col1:
-        status_color = "🟢" if st_cnn["status"] == "success" else "🔴"
-        st.markdown(f"""
-        <div class="model-card model-{st_cnn['status']}">
-            <h4 style="margin: 0;">{status_color} CNN Model</h4>
-            <p style="font-size: 0.8rem; margin: 0.2rem 0;">{st_cnn['msg']}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        status_color = "🟢" if st_resnet["status"] == "success" else "🔴"
-        st.markdown(f"""
-        <div class="model-card model-{st_resnet['status']}">
-            <h4 style="margin: 0;">{status_color} ResNet18</h4>
-            <p style="font-size: 0.8rem; margin: 0.2rem 0;">{st_resnet['msg']}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # Hiển thị status card
+    for s in [st_cnn, st_resnet, st_mobi]:
+        color = "🟢" if s["status"] == "success" else "🔴"
+        st.markdown(f"""<div class="model-card model-{s['status']}"><p style="margin:0;">{color} {s['msg']}</p></div>""", unsafe_allow_html=True)
     
     st.markdown("---")
     st.markdown("### 👥 Đội Ngũ Phát Triển")
@@ -98,7 +102,7 @@ with st.sidebar:
                 </div>
                 <div style="margin-bottom: 8px;">
                     <span style="background: #16a34a; color: white; border-radius: 50%; padding: 2px 7px; margin-right: 5px; font-weight: bold;">2</span> 
-                    <b>Kiểm tra:</b> Xem trước ảnh để đảm bảo hình ảnh rõ nét.
+                    <b>Chọn mode:</b> Lựa chọn phương pháp phân tích ở sidebar.
                 </div>
                 <div style="margin-bottom: 8px;">
                     <span style="background: #16a34a; color: white; border-radius: 50%; padding: 2px 7px; margin-right: 5px; font-weight: bold;">3</span> 
@@ -159,8 +163,19 @@ if uploaded_file is not None:
         <div class="card">
             <p><strong>Tên file:</strong> {uploaded_file.name}</p>
             <p><strong>Kích thước:</strong> {image.size[0]} x {image.size[1]} pixels</p>
+            <p><strong>Chế độ đã chọn:</strong> {analysis_mode}</p>
         </div>
         """, unsafe_allow_html=True)
+        
+        # Hiển thị thông tin về mode được chọn
+        mode_info = {
+            "CNN": "Sử dụng mô hình CNN tùy chỉnh",
+            "ResNet18": "Sử dụng mô hình ResNet18",
+            "MobileNetV3": "Sử dụng mô hình MobileNetV3 nhẹ và nhanh",
+            "Ensemble (Tỉ lệ: 30-40-30)": "Kết hợp 3 mô hình với tỉ lệ: CNN 30%, ResNet18 40%, MobileNetV3 30%"
+        }
+        
+        st.info(f"**Mode đang dùng:** {mode_info[analysis_mode]}")
         
         # Nút phân tích
         analyze_button = st.button(
@@ -171,119 +186,198 @@ if uploaded_file is not None:
         )
         
         if analyze_button:
-            with st.spinner("🔄 Đang phân tích với AI..."):
-                # Phân tích CNN
-                res_cnn = {"label": "N/A", "score": 0.0}
-                if cnn_model:
-                    input_cnn, _ = utils.preprocess_image_exact(image, 'cnn')
+            # Tạo progress bar
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            # Hiển thị thời gian bắt đầu
+            start_time = time.time()
+            status_text.text(f"⏱️ Bắt đầu phân tích lúc: {time.strftime('%H:%M:%S')}")
+            
+            # Phân tích ảnh với progress bar
+            for i in range(1, 101, 20):
+                progress_bar.progress(i)
+                time.sleep(0.1)
+            
+            # Đo thời gian inference
+            inference_start = time.time()
+            
+            # Khởi tạo biến cho kết quả
+            scores = {}
+            final_score = 0.0
+            inference_time = 0.0
+            
+            # Tính điểm từng model dựa trên mode được chọn
+            try:
+                # Nếu là mode đơn lẻ hoặc ensemble
+                if analysis_mode in ["CNN", "Ensemble (Tỉ lệ: 30-40-30)"] and cnn_model:
+                    inp, _ = utils.preprocess_image_exact(image, 'cnn')
                     with torch.no_grad():
-                        out = cnn_model(input_cnn)
-                        probs = torch.softmax(out, dim=1)[0]
-                        res_cnn["score"] = probs[1].item()
-                        res_cnn["label"] = "VIÊM PHỔI" if res_cnn["score"] > 0.5 else "BÌNH THƯỜNG"
+                        score_cnn = torch.softmax(cnn_model(inp), dim=1)[0][1].item()
+                    scores["CNN"] = score_cnn
                 
-                # Phân tích ResNet
-                res_resnet = {"label": "N/A", "score": 0.0}
-                if resnet_model:
-                    input_resnet, _ = utils.preprocess_image_exact(image, 'resnet')
+                if analysis_mode in ["ResNet18", "Ensemble (Tỉ lệ: 30-40-30)"] and resnet_model:
+                    inp, _ = utils.preprocess_image_exact(image, 'resnet')
                     with torch.no_grad():
-                        out = resnet_model(input_resnet)
-                        probs = torch.softmax(out, dim=1)[0]
-                        res_resnet["score"] = probs[1].item()
-                        res_resnet["label"] = "VIÊM PHỔI" if res_resnet["score"] > 0.5 else "BÌNH THƯỜNG"
+                        score_resnet = torch.softmax(resnet_model(inp), dim=1)[0][1].item()
+                    scores["ResNet18"] = score_resnet
                 
-                # Hiển thị kết quả từng model
-                st.markdown("### 📊 Kết Quả Phân Tích Từng Model")
+                if analysis_mode in ["MobileNetV3", "Ensemble (Tỉ lệ: 30-40-30)"] and mobilenet_model:
+                    inp, _ = utils.preprocess_image_exact(image, 'resnet')
+                    with torch.no_grad():
+                        score_mobilenet = torch.softmax(mobilenet_model(inp), dim=1)[0][1].item()
+                    scores["MobileNetV3"] = score_mobilenet
                 
-                col_cnn, col_resnet = st.columns(2)
+                # Kiểm tra xem model có sẵn hay không
+                if analysis_mode == "CNN":
+                    if "CNN" in scores:
+                        final_score = scores["CNN"]
+                    else:
+                        st.error("⚠️ Mô hình CNN không khả dụng. Vui lòng kiểm tra lại trạng thái hệ thống.")
+                        progress_bar.empty()
+                        status_text.empty()
+                        st.stop()
                 
-                with col_cnn:
-                    cnn_color = "#10b981" if res_cnn["label"] == "BÌNH THƯỜNG" else "#ef4444"
-                    cnn_icon = "✅" if res_cnn["label"] == "BÌNH THƯỜNG" else "⚠️"
-                    st.markdown(f"""
-                    <div class="card">
-                        <h3 style="color: {cnn_color};">{cnn_icon} CNN Model</h3>
-                        <h2 style="color: {cnn_color}; margin: 1rem 0;">{res_cnn['label']}</h2>
-                        <p><strong>Độ tin cậy:</strong> {res_cnn['score']*100:.1f}%</p>
-                        <div style="background: #e5e7eb; height: 10px; border-radius: 5px; margin: 1rem 0;">
-                            <div style="background: {cnn_color}; width: {res_cnn['score']*100}%; height: 100%; border-radius: 5px;"></div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                elif analysis_mode == "ResNet18":
+                    if "ResNet18" in scores:
+                        final_score = scores["ResNet18"]
+                    else:
+                        st.error("⚠️ Mô hình ResNet18 không khả dụng. Vui lòng kiểm tra lại trạng thái hệ thống.")
+                        progress_bar.empty()
+                        status_text.empty()
+                        st.stop()
                 
-                with col_resnet:
-                    resnet_color = "#10b981" if res_resnet["label"] == "BÌNH THƯỜNG" else "#ef4444"
-                    resnet_icon = "✅" if res_resnet["label"] == "BÌNH THƯỜNG" else "⚠️"
-                    st.markdown(f"""
-                    <div class="card">
-                        <h3 style="color: {resnet_color};">{resnet_icon} ResNet18</h3>
-                        <h2 style="color: {resnet_color}; margin: 1rem 0;">{res_resnet['label']}</h2>
-                        <p><strong>Độ tin cậy:</strong> {res_resnet['score']*100:.1f}%</p>
-                        <div style="background: #e5e7eb; height: 10px; border-radius: 5px; margin: 1rem 0;">
-                            <div style="background: {resnet_color}; width: {res_resnet['score']*100}%; height: 100%; border-radius: 5px;"></div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                elif analysis_mode == "MobileNetV3":
+                    if "MobileNetV3" in scores:
+                        final_score = scores["MobileNetV3"]
+                    else:
+                        st.error("⚠️ Mô hình MobileNetV3 không khả dụng. Vui lòng kiểm tra lại trạng thái hệ thống.")
+                        progress_bar.empty()
+                        status_text.empty()
+                        st.stop()
                 
-                # Kết quả tổng hợp
-                st.markdown("### 🎯 Kết Luận Tổng Hợp")
+                elif analysis_mode == "Ensemble (Tỉ lệ: 30-40-30)":
+                    # Kiểm tra xem có đủ 3 model không
+                    if "CNN" in scores and "ResNet18" in scores and "MobileNetV3" in scores:
+                        # Tính theo tỉ lệ: CNN = 0.3, ResNet18 = 0.4, MobileNetV3 = 0.3
+                        final_score = (scores["CNN"] * 0.3) + (scores["ResNet18"] * 0.4) + (scores["MobileNetV3"] * 0.3)
+                    else:
+                        st.error("⚠️ Không đủ mô hình để thực hiện Ensemble. Vui lòng kiểm tra lại trạng thái hệ thống.")
+                        progress_bar.empty()
+                        status_text.empty()
+                        st.stop()
                 
-                weight_cnn = 0.4
-                weight_resnet = 0.6
-                final_score = (res_cnn['score'] * weight_cnn) + (res_resnet['score'] * weight_resnet)
-                
-                if final_score >= 0.8:
-                    result_class = "pneumonia-result"
-                    result_icon = "🔴"
-                    result_title = "VIÊM PHỔI (Nguy cơ cao)"
-                    result_class = "result-card pneumonia-result blink-danger" # Thêm class blink
-                    st.toast('⚠️ Phát hiện dấu hiệu bất thường nghiêm trọng!', icon='🚨')
-                elif 0.5 <= final_score < 0.8:
-                    result_class = "warning-result"
-                    result_icon = "🟡"
-                    result_title = "NGHI NGỜ VIÊM PHỔI"
-                    result_class = "result-card pneumonia-result blink-danger" # Thêm class blink
-                    st.toast('⚠️ Phát hiện dấu hiệu bất thường!', icon='🚨')
-                elif 0.2 <= final_score < 0.5:
-                    result_class = "normal-result"
-                    st.balloons()
-                    result_icon = "🟢"
-                    result_title = "BÌNH THƯỜNG"
-                    st.toast('Ổn: Phổi có vẻ khỏe mạnh', icon='✨')
-                else:
-                    result_class = "normal-result"
-                    st.balloons()
-                    result_icon = "🟢"
-                    result_title = "PHỔI KHỎE MẠNH"
-                    st.toast('Tuyệt vời: Phổi có vẻ rất khỏe mạnh', icon='✨')
-                
-                st.markdown(f"""
-                <div class="result-card {result_class}">
-                    <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                        <span style="font-size: 2rem; margin-right: 1rem;">{result_icon}</span>
-                        <h2 style="margin: 0;">{result_title}</h2>
-                    </div>
-                    <div style="background: white; padding: 1rem; border-radius: 10px; margin: 1rem 0;">
-                        <h3 style="color: #333; margin-bottom: 0.5rem;">📈 Độ tin cậy hệ thống: {final_score*100:.1f}%</h3>
-                        <div style="background: linear-gradient(90deg, #3b82f6, #8b5cf6); height: 15px; border-radius: 10px; width: {final_score*100}%;"></div>
-                    </div>
+            except Exception as e:
+                st.error(f"⚠️ Lỗi khi phân tích: {str(e)}")
+                progress_bar.empty()
+                status_text.empty()
+                st.stop()
+            
+            inference_end = time.time()
+            inference_time = inference_end - inference_start
+            
+            progress_bar.progress(100)
+            time.sleep(0.2)
+            progress_bar.empty()
+            status_text.empty()
+            
+            # Tính tổng thời gian
+            end_time = time.time()
+            total_time = end_time - start_time
+            
+            # Hiển thị thời gian dự đoán
+            st.markdown(f"""
+            <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+                <h4>⏱️ Thông Tin Thời Gian</h4>
+                <p><strong>Thời gian inference:</strong> {inference_time:.3f} giây</p>
+                <p><strong>Tổng thời gian xử lý:</strong> {total_time:.3f} giây</p>
+                <p><strong>Bắt đầu:</strong> {time.strftime('%H:%M:%S', time.localtime(start_time))}</p>
+                <p><strong>Kết thúc:</strong> {time.strftime('%H:%M:%S', time.localtime(end_time))}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Hiển thị kết quả từng model nếu có nhiều model
+            if analysis_mode == "Ensemble (Tỉ lệ: 30-40-30)" and len(scores) >= 2:
+                st.markdown("### 📊 Kết Quả Chi Tiết Từng Model")
+                cols = st.columns(len(scores))
+                for idx, (model_name, score) in enumerate(scores.items()):
+                    with cols[idx]:
+                        st.metric(
+                            label=model_name,
+                            value=f"{score*100:.1f}%",
+                            delta=None,
+                            help=f"Độ tin cậy từ {model_name}"
+                        )
+            
+            # --- HIỂN THỊ KẾT QUẢ CUỐI CÙNG ---
+            if final_score >= 0.8:
+                result_class = "pneumonia-result"
+                result_icon = "🔴"
+                result_title = "VIÊM PHỔI (Nguy cơ cao)"
+                result_class = "result-card pneumonia-result blink-danger"
+                st.toast('⚠️ Phát hiện dấu hiệu bất thường nghiêm trọng!', icon='🚨')
+            elif 0.5 <= final_score < 0.8:
+                result_class = "warning-result"
+                result_icon = "🟡"
+                result_title = "NGHI NGỜ VIÊM PHỔI"
+                result_class = "result-card pneumonia-result blink-danger"
+                st.toast('⚠️ Phát hiện dấu hiệu bất thường!', icon='🚨')
+            elif 0.2 <= final_score < 0.5:
+                result_class = "normal-result"
+                st.balloons()
+                result_icon = "🟢"
+                result_title = "BÌNH THƯỜNG"
+                st.toast('Ổn: Phổi có vẻ khỏe mạnh', icon='✨')
+            else:
+                result_class = "normal-result"
+                st.balloons()
+                result_icon = "🟢"
+                result_title = "PHỔI KHỎE MẠNH"
+                st.toast('Tuyệt vời: Phổi có vẻ rất khỏe mạnh', icon='✨')
+            
+            # Hiển thị kết quả
+            st.markdown(f"""
+            <div class="result-card {result_class}">
+                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                    <span style="font-size: 2rem; margin-right: 1rem;">{result_icon}</span>
+                    <h2 style="margin: 0;">{result_title}</h2>
                 </div>
-                """, unsafe_allow_html=True)
-                
-                with st.expander("📊 Thông tin kỹ thuật chi tiết"):
-                    col_tech1, col_tech2 = st.columns(2)
-                    with col_tech1:
-                        st.markdown("**🎯 Trọng số Ensemble:**")
-                        st.markdown("- CNN Model: 40%")
-                        st.markdown("- ResNet18: 60%")
-                        st.markdown(f"- **Điểm tổng hợp:** {final_score:.3f}")
+                <div style="background: white; padding: 1rem; border-radius: 10px; margin: 1rem 0;">
+                    <h3 style="color: #333; margin-bottom: 0.5rem;">📈 Độ tin cậy hệ thống: {final_score*100:.1f}%</h3>
+                    <div style="background: linear-gradient(90deg, #3b82f6, #8b5cf6); height: 15px; border-radius: 10px; width: {final_score*100}%;"></div>
+                </div>
+                <p style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">
+                <strong>Phương pháp:</strong> {analysis_mode}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Thông tin kỹ thuật chi tiết
+            with st.expander("📊 Thông tin kỹ thuật chi tiết"):
+                col_tech1, col_tech2 = st.columns(2)
+                with col_tech1:
+                    st.markdown("**🎯 Thông số hệ thống:**")
+                    st.markdown(f"- **Mode đang dùng:** {analysis_mode}")
+                    st.markdown(f"- **Điểm tổng hợp:** {final_score:.4f}")
+                    st.markdown(f"- **Thời gian inference:** {inference_time:.3f} giây")
                     
-                    with col_tech2:
-                        st.markdown("**⚙️ Thông số xử lý:**")
-                        st.markdown(f"- Kích thước ảnh: 224×224px")
-                        st.markdown(f"- Contrast Alpha: 2.5")
-                        st.markdown(f"- Brightness Beta: -180")
-                        st.markdown(f"- Gamma Correction: 1.0")
+                    if scores:
+                        st.markdown("**📈 Điểm từng model:**")
+                        for model_name, score in scores.items():
+                            st.markdown(f"- {model_name}: {score:.4f}")
+                    
+                    if analysis_mode == "Ensemble (Tỉ lệ: 30-40-30)":
+                        st.markdown("**⚖️ Trọng số Ensemble:**")
+                        st.markdown("- CNN Model: 30%")
+                        st.markdown("- ResNet18: 40%")
+                        st.markdown("- MobileNetV3: 30%")
+                
+                with col_tech2:
+                    st.markdown("**⚙️ Thông số xử lý ảnh:**")
+                    st.markdown(f"- Kích thước ảnh: 224×224px")
+                    st.markdown(f"- Contrast Alpha: 2.5")
+                    st.markdown(f"- Brightness Beta: -180")
+                    st.markdown(f"- Gamma Correction: 1.0")
 
 else:
     st.markdown("""
@@ -292,7 +386,8 @@ else:
         <h3 style="color: #475569;">Kéo thả ảnh X-quang vào đây</h3>
         <p style="color: #94a3b8;">Hoặc click để chọn file từ máy tính</p>
         <p style="color: #64748b; font-size: 0.9rem; margin-top: 2rem;">
-        <strong>📝 Lưu ý:</strong> Hệ thống hỗ trợ các định dạng JPG, PNG, JPEG
+        <strong>📝 Lưu ý:</strong> Hệ thống hỗ trợ các định dạng JPG, PNG, JPEG<br>
+        <strong>🎯 Chú ý:</strong> Chọn phương pháp phân tích ở sidebar trước khi upload
         </p>
     </div>
     """, unsafe_allow_html=True)
