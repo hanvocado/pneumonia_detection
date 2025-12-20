@@ -3,7 +3,7 @@ import torch
 import cv2
 import numpy as np
 from torchvision import transforms
-from models import BasicCNN, get_resnet_model # Import từ file models.py
+from models import BasicCNN, get_resnet_model, get_mobilenet_model # Import từ file models.py
 
 # ==========================================
 # HÀM LOAD MODELS (VỚI CACHE)
@@ -34,7 +34,18 @@ def load_models():
         resnet = None
         status_resnet = {"status": "error", "msg": f"Lỗi: {str(e)[:50]}..."}
         
-    return cnn, resnet, status_cnn, status_resnet
+    # 3. Load MobileNetV3
+    mobilenet = get_mobilenet_model()
+    mobilenet_path = "../../models/mobilenetv3_best.pth"
+    try:
+        mobilenet.load_state_dict(torch.load(mobilenet_path, map_location=device))
+        mobilenet.eval()
+        status_mobilenet = {"status": "success", "msg": "MobileNetV3 sẵn sàng"}
+    except Exception as e:
+        mobilenet = None
+        status_mobilenet = {"status": "error", "msg": f"Lỗi: {str(e)[:50]}..."}
+        
+    return cnn, resnet, mobilenet, status_cnn, status_resnet, status_mobilenet
 
 # ==========================================
 # TIỀN XỬ LÝ ẢNH

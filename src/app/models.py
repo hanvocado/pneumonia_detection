@@ -41,3 +41,19 @@ def get_resnet_model():
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs, 2)
     return model
+
+
+# ==========================================
+# 3. KIẾN TRÚC MobileNetV3
+# ==========================================
+def get_mobilenet_model():
+    model = models.mobilenet_v3_small(weights=None)
+    num_features = model.classifier[0].in_features
+    model.classifier = nn.Sequential(
+        nn.Linear(num_features, 1024),
+        nn.Hardswish(),
+        nn.Dropout(p=0.3),
+        nn.Linear(1024, 2)
+    )
+    
+    return model
