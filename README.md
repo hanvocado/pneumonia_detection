@@ -131,10 +131,12 @@ Kết quả dự kiến:
 
 ## 🖼 8. Demo dự đoán ảnh
 
-Chạy app:
+Từ thư mục gốc, di chuyển vào thư mục src\app:
+- cd src/app
 
+Chạy app:
 ```
-python
+streamlit run app.py
 ```
 
 Chức năng:
