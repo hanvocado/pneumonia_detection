@@ -82,7 +82,7 @@ with st.sidebar:
             </ul>
             <div style="background-color: #eff6ff; padding: 8px; border-radius: 5px;">
                 <p style="margin: 0; font-size: 0.8rem; color: #1d4ed8;">
-                    <strong>📚 GV hướng dẫn:</strong><br>Thầy Võ Lê Phúc Hậu
+                    <strong>📚 GV hướng dẫn:</strong><br> Võ Lê Phúc Hậu
                 </p>
             </div>
         </div>

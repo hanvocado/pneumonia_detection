@@ -47,7 +47,7 @@ def get_resnet_model():
 # 3. KIẾN TRÚC MobileNetV3
 # ==========================================
 def get_mobilenet_model():
-    model = models.mobilenet_v3_small(weights=None)
+    model = models.mobilenet_v3_large(weights=None)
     num_features = model.classifier[0].in_features
     model.classifier = nn.Sequential(
         nn.Linear(num_features, 1024),
